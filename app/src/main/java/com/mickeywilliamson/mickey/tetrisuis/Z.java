@@ -12,6 +12,7 @@ public class Z extends Piece {
         setRotation(0);
         block = getBlock();
         colorIndex = 7; // White
+        fileName = "z";
     }
 
     public void setRotation(int rotate) {

@@ -12,6 +12,7 @@ public class L extends Piece {
         setRotation(0);
         block = getBlock();
         colorIndex = 3; // Yellow
+        fileName = "l";
     }
 
     public void setRotation(int rotate) {

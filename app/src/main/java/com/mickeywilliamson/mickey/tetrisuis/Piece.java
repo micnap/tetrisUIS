@@ -30,6 +30,7 @@ public abstract class Piece {
     int rotation = 0;
     int color;
     Point coords = new Point(4,0);
+    String fileName;
 
     public void rotate(String direction) {
         if (direction == "left") {
@@ -61,5 +62,7 @@ public abstract class Piece {
     public int[][] getBlock() {
         return block;
     }
+
+    public String getFileName() { return fileName; }
 }
 

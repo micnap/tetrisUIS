@@ -1,7 +1,11 @@
 package com.mickeywilliamson.mickey.tetrisuis;
 
 
+import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
 import android.graphics.Color;
+import android.media.AudioManager;
+import android.media.SoundPool;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -10,20 +14,30 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.GridLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
 
+import java.util.ArrayList;
 import java.util.Random;
 
 
 public class MainActivity extends AppCompatActivity {
-    private Handler handler;
-    Piece piece;
-    int pieceCount = 0;
-    int row = 0;
-    int column = 4;
-    boolean register = false;
-    //Timer timerNewPiece = new Timer();
+
     final static int GRID_HEIGHT = 15;
     final static int GRID_WIDTH = 9;
+
+    Handler handler;
+    Piece piece;
+    Piece nextPiece;
+
+    int pieceCount = -1;
+    int row = 0;
+    int column = 4;
+
+    TextView score;
+
+
+    SoundPool soundPool;
+    int soundGameOver = -1, soundPieceMove = -1, soundPieceRotate = -1, soundPieceLand = -1;
 
     int[][] gameGrid = new int[][]{
             {0,0,0,0,0,0,0,0,0,0},
@@ -51,33 +65,55 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         handler = new Handler();
-        handler.postDelayed(runnable, 1000);
+        handler.postDelayed(runnable, getSpeed());
+
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        soundPool = new SoundPool(5, AudioManager.STREAM_MUSIC, 0);
+        AssetManager assetManager = getAssets();
+        try {
+            AssetFileDescriptor soundGameOverFD = assetManager.openFd("gameover.ogg");
+            soundGameOver = soundPool.load(soundGameOverFD, 1);
+            AssetFileDescriptor soundPieceMoveFD = assetManager.openFd("piecemove.ogg");
+            soundPieceMove = soundPool.load(soundPieceMoveFD, 1);
+            AssetFileDescriptor soundPieceRotateFD = assetManager.openFd("piecerotate.ogg");
+            soundPieceRotate = soundPool.load(soundPieceRotateFD, 1);
+            AssetFileDescriptor soundPieceLandFD = assetManager.openFd("pieceland.ogg");
+            soundPieceLand = soundPool.load(soundPieceLandFD, 1);
+        } catch(Exception e) {
+            Log.d("FILE", "File does not exist");
+        }
+
+
     }
 
     public void rotateLeft(View view) {
         piece.rotate("left");
+        soundPool.play(soundPieceRotate, 1, 1, 0, 0, 1);
     }
 
     public void rotateRight(View view) {
         piece.rotate("right");
+        soundPool.play(soundPieceRotate, 1, 1, 0, 0, 1);
     }
 
     public void moveLeft(View view) {
         if (column > 0) {
             --column;
+            soundPool.play(soundPieceMove, 1, 1, 0, 0, 1);
         }
     }
 
     public void moveRight(View view) {
         if (column <= GRID_WIDTH - piece.getWidth()) {
             ++column;
+            soundPool.play(soundPieceMove, 1, 1, 0, 0, 1);
         }
     }
 
     private Runnable runnable = new Runnable() {
         @Override
         public void run() {
-            handler.postDelayed(this, 1000);
+            handler.postDelayed(this, getSpeed());
 
             placePiece();
             row++;
@@ -85,12 +121,43 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private int getSpeed() {
+        if (pieceCount < 2) {
+            return 1000;
+        } else if (pieceCount < 3) {
+            return 900;
+        } else if (pieceCount < 4) {
+            return 800;
+        } else if (pieceCount < 5) {
+            return 700;
+        } else if (pieceCount < 6) {
+            return 600;
+        } else if (pieceCount < 7) {
+            return 500;
+        } else if (pieceCount < 8) {
+            return 400;
+        } else if (pieceCount < 9) {
+            return 300;
+        } else if (pieceCount < 10) {
+            return 200;
+        } else {
+            return 100;
+        }
+    }
 
     private boolean checkForCollision() {
         boolean collision = false;
 
         if (piece == null) {
-            piece = pickPiece();
+            //piece = pickPiece();
+            if (nextPiece == null) {
+                nextPiece = pickPiece();
+            }
+            piece = nextPiece;
+            nextPiece = pickPiece();
+            ImageView nextPieceIV = (ImageView) findViewById(R.id.nextPieceIV);
+            int drawableResId = getResources().getIdentifier(nextPiece.getFileName(), "drawable", getPackageName());
+            nextPieceIV.setImageResource(drawableResId);
         }
 
         int height = piece.getBlock().length;
@@ -102,8 +169,10 @@ public class MainActivity extends AppCompatActivity {
         // and we're checking for the past move.
         if (row - 1 + height > GRID_HEIGHT) {
             registerOnGrid();
-            printGrid();
+            printGrid(gameGrid);
+            removeFullRows();
             piece = null;
+            soundPool.play(soundPieceLand, 1, 1, 0, 0, 1);
             return true;
         }
 
@@ -113,9 +182,11 @@ public class MainActivity extends AppCompatActivity {
                 if (block[pieceRow][pieceCol] == 1 && gameGrid[row + pieceRow][column + pieceCol] > 0) {
                     // The piece will collide.  Register the piece on the grid.
                     registerOnGrid();
-                    printGrid();
+                    printGrid(gameGrid);
+                    removeFullRows();
                     piece = null;
                     drawGrid();
+                    soundPool.play(soundPieceLand, 1, 1, 0, 0, 1);
                     return true;
                 }
             }
@@ -146,7 +217,15 @@ public class MainActivity extends AppCompatActivity {
 
     private void placePiece() {
         if (piece == null) {
-            piece = pickPiece();
+            //piece = pickPiece();
+            if (nextPiece == null) {
+                nextPiece = pickPiece();
+            }
+            piece = nextPiece;
+            nextPiece = pickPiece();
+            ImageView nextPieceIV = (ImageView) findViewById(R.id.nextPieceIV);
+            int drawableResId = getResources().getIdentifier(nextPiece.getFileName(), "drawable", getPackageName());
+            nextPieceIV.setImageResource(drawableResId);
         }
 
         // Refresh the grid to erase any bits that get left behind when rotating pieces.
@@ -168,10 +247,6 @@ public class MainActivity extends AppCompatActivity {
                 int resID;
                 ImageView image;
 
-                Log.d("COLUMN", "" + column);
-                Log.d("J IS", "" + j);
-                Log.d("ROW IS", "" + row);
-                Log.d("PIECE", piece.toString());
 
                 // Erase previous row.
                 if (row > 0) {
@@ -223,14 +298,65 @@ public class MainActivity extends AppCompatActivity {
 
             }
         }
+
+        score = (TextView) findViewById(R.id.score);
+        score.setText(String.valueOf(pieceCount));
+
+    }
+
+    // Brute force, baby.  Brute force.
+    private void removeFullRows() {
+        ArrayList<Integer> fullRows = new ArrayList<>();
+        for (int r = 0; r < gameGrid.length; r++) {
+            int col = 0;
+            while (col < gameGrid[r].length && gameGrid[r][col] > 0 ) {
+
+
+                if (col == 9) {
+                    // We've hit a full row.  Mark it for removal.
+                    fullRows.add(r);
+                }
+                col++;
+            }
+        }
+
+        for (int i = 0; i < fullRows.size(); i++) {
+            System.out.println(fullRows.get(i));
+        }
+        // Adding new rows at beginning to make up for rows that will be removed.
+        int[][] tempArray = new int[16][10];
+        System.out.println("fullRows size = " + fullRows.size());
+
+
+        Log.d("TEST", "TEMP ARRAY PRINTING");
+        printGrid(tempArray);
+
+        int counter = 0;
+        for (int r = 15; r >= 0; r--) {
+            if (fullRows.contains(r)) {
+                counter++;
+                continue;
+            }
+            for (int c = 0; c <= 9; c++) {
+
+                if (!fullRows.contains(r)) {
+                    tempArray[r+counter][c] = gameGrid[r][c];
+                }
+
+            }
+            System.out.println(counter);
+
+        }
+        gameGrid = tempArray;
+        drawGrid();
     }
 
     private Piece pickPiece() {
         row = 0;
         column = 4;
         pieceCount++;
-        return new T();
-/*
+        //return new T();
+
         Random rand = new Random();
         int randomNum = rand.nextInt(7);
         switch (randomNum) {
@@ -250,10 +376,11 @@ public class MainActivity extends AppCompatActivity {
                 return new Z();
             default:
                 return new I();
-        }*/
+        }
     }
 
-    private void printGrid() {
+
+    private void printGrid(int[][] gameGrid) {
         String arrayString = "";
         for (int i = 0; i <= GRID_HEIGHT; i++) {
             for (int j = 0; j <= GRID_WIDTH; j++) {
@@ -261,24 +388,12 @@ public class MainActivity extends AppCompatActivity {
             }
             arrayString += "\n";
         }
+        Log.d("TEST", arrayString);
 
 
     }
+
+
+
 }
-/*
-if (piece != null) {
-                int height = piece.getBlock().length;
-                int width = piece.getBlock()[0].length;
-                int[][] block = piece.getBlock();
 
-                for (int w = 0; w < width; w++) {
-                    Log.d("ROW", "" + row);
-                    if (block[height-1][w] == 1 && gameGrid[row][w + 4] > 0) {
-                        registerOnGrid(row-1);
-                        //printGrid();
-                        piece = null;
-                    }
-
-                }
-            }
- */
