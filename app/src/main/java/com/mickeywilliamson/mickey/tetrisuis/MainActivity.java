@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Handler;
+import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -32,6 +33,8 @@ public class MainActivity extends AppCompatActivity {
     int pieceCount = -1;
     int row = 0;
     int column = 4;
+    boolean endGame = false;
+    boolean APP_EXIT_FLAG = false;
 
     TextView score;
 
@@ -65,7 +68,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         handler = new Handler();
-        handler.postDelayed(runnable, getSpeed());
+        //handler.postDelayed(runnable, getSpeed());
+        handler.postDelayed(runnable, 1000);
 
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         soundPool = new SoundPool(5, AudioManager.STREAM_MUSIC, 0);
@@ -87,16 +91,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void rotateLeft(View view) {
+        if (piece == null) {
+            return;
+        }
         piece.rotate("left");
         soundPool.play(soundPieceRotate, 1, 1, 0, 0, 1);
     }
 
     public void rotateRight(View view) {
+        if (piece == null) {
+            return;
+        }
         piece.rotate("right");
         soundPool.play(soundPieceRotate, 1, 1, 0, 0, 1);
     }
 
     public void moveLeft(View view) {
+        if (piece == null) {
+            return;
+        }
         if (column > 0) {
             --column;
             soundPool.play(soundPieceMove, 1, 1, 0, 0, 1);
@@ -104,20 +117,33 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void moveRight(View view) {
+        if (piece == null) {
+            return;
+        }
         if (column <= GRID_WIDTH - piece.getWidth()) {
             ++column;
             soundPool.play(soundPieceMove, 1, 1, 0, 0, 1);
         }
     }
 
+    public void onResume(){
+        super.onResume();
+
+        if(APP_EXIT_FLAG)
+            finish();
+    }
+
     private Runnable runnable = new Runnable() {
         @Override
         public void run() {
-            handler.postDelayed(this, getSpeed());
+            //handler.postDelayed(this, getSpeed());
+            handler.postDelayed(this, 1000);
 
-            placePiece();
-            row++;
-            checkForCollision();
+            if (!endGame) {
+                placePiece();
+                row++;
+                checkForCollision();
+            }
         }
     };
 
@@ -145,8 +171,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private boolean checkForCollision() {
-        boolean collision = false;
+    private void checkForCollision() {
 
         if (piece == null) {
             //piece = pickPiece();
@@ -173,8 +198,9 @@ public class MainActivity extends AppCompatActivity {
             removeFullRows();
             piece = null;
             soundPool.play(soundPieceLand, 1, 1, 0, 0, 1);
-            return true;
+            return;
         }
+
 
         // Loop through the piece.
         for (int pieceRow = 0; pieceRow < height; pieceRow++) {
@@ -187,14 +213,10 @@ public class MainActivity extends AppCompatActivity {
                     piece = null;
                     drawGrid();
                     soundPool.play(soundPieceLand, 1, 1, 0, 0, 1);
-                    return true;
+                    return;
                 }
             }
-
         }
-
-
-        return false;
     }
 
 
@@ -284,6 +306,12 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private void endGame() {
+        endGame = true;
+        DialogFragment newFragment = new EndGameDialog();
+        newFragment.show(getSupportFragmentManager(), "End Game");
+    }
+
     private void registerOnGrid() {
         int height = piece.getBlock().length;
         int width = piece.getBlock()[0].length;
@@ -293,7 +321,10 @@ public class MainActivity extends AppCompatActivity {
         for (int h = 0; h < height; h++) {
             for (int w = 0; w < width; w++) {
                 if (block[h][w] == 1) {
-                    gameGrid[row + h - 1][column + w] = piece.colorIndex;
+
+                        gameGrid[row + h - 1][column + w] = piece.colorIndex;
+
+
                 }
 
             }
