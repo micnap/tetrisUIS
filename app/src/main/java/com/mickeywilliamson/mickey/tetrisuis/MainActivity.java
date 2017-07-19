@@ -1,6 +1,7 @@
 package com.mickeywilliamson.mickey.tetrisuis;
 
 
+import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Color;
@@ -29,16 +30,11 @@ public class MainActivity extends AppCompatActivity {
     Handler handler;
     Piece piece;
     Piece nextPiece;
-
     int pieceCount = -1;
     int row = 0;
     int column = 4;
     boolean endGame = false;
-    boolean APP_EXIT_FLAG = false;
-
     TextView score;
-
-
     SoundPool soundPool;
     int soundGameOver = -1, soundPieceMove = -1, soundPieceRotate = -1, soundPieceLand = -1;
 
@@ -68,12 +64,12 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         handler = new Handler();
-        //handler.postDelayed(runnable, getSpeed());
-        handler.postDelayed(runnable, 1000);
+        handler.postDelayed(runnable, getSpeed());
 
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         soundPool = new SoundPool(5, AudioManager.STREAM_MUSIC, 0);
         AssetManager assetManager = getAssets();
+
         try {
             AssetFileDescriptor soundGameOverFD = assetManager.openFd("gameover.ogg");
             soundGameOver = soundPool.load(soundGameOverFD, 1);
@@ -86,9 +82,50 @@ public class MainActivity extends AppCompatActivity {
         } catch(Exception e) {
             Log.d("FILE", "File does not exist");
         }
-
-
     }
+
+    private Runnable runnable = new Runnable() {
+        @Override
+        public void run() {
+
+            handler.postDelayed(this, getSpeed());
+
+            //if (!endGame) {
+            if (endGame == false) {
+                placePiece();
+                row++;
+                checkForCollision();
+
+            } else {
+                handler.postDelayed(this, 10000);
+                piece = null;
+                nextPiece = null;
+                pieceCount = -1;
+                row = 0;
+                column = 4;
+                endGame = false;
+                gameGrid = new int[][]{
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0},
+                        {0,0,0,0,0,0,0,0,0,0}
+                };
+            }
+
+        }
+    };
 
     public void rotateLeft(View view) {
         if (piece == null) {
@@ -126,27 +163,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void onResume(){
-        super.onResume();
-
-        if(APP_EXIT_FLAG)
-            finish();
-    }
-
-    private Runnable runnable = new Runnable() {
-        @Override
-        public void run() {
-            //handler.postDelayed(this, getSpeed());
-            handler.postDelayed(this, 1000);
-
-            if (!endGame) {
-                placePiece();
-                row++;
-                checkForCollision();
-            }
-        }
-    };
-
     private int getSpeed() {
         if (pieceCount < 2) {
             return 1000;
@@ -174,12 +190,13 @@ public class MainActivity extends AppCompatActivity {
     private void checkForCollision() {
 
         if (piece == null) {
-            //piece = pickPiece();
             if (nextPiece == null) {
                 nextPiece = pickPiece();
             }
             piece = nextPiece;
             nextPiece = pickPiece();
+
+            // Display the next piece on the right side of screen.
             ImageView nextPieceIV = (ImageView) findViewById(R.id.nextPieceIV);
             int drawableResId = getResources().getIdentifier(nextPiece.getFileName(), "drawable", getPackageName());
             nextPieceIV.setImageResource(drawableResId);
@@ -194,21 +211,45 @@ public class MainActivity extends AppCompatActivity {
         // and we're checking for the past move.
         if (row - 1 + height > GRID_HEIGHT) {
             registerOnGrid();
-            printGrid(gameGrid);
             removeFullRows();
             piece = null;
             soundPool.play(soundPieceLand, 1, 1, 0, 0, 1);
             return;
+
+        // Check if this is the last piece of the game.
+        } else if (gameGrid[height][column] > 0) {
+            for (int pieceRow = height - 1; pieceRow >= 0; pieceRow--) {
+                int gameGridRow = height - 1;
+                for (int pieceCol = 0; pieceCol < width; pieceCol++) {
+                    if (block[pieceRow][pieceCol] == 1) {
+
+                        while (gameGrid[gameGridRow][column + pieceCol] > 0 && gameGridRow > 0) {
+                            gameGridRow--;
+                        }
+
+                        gameGrid[gameGridRow][column + pieceCol] = piece.colorIndex;
+                    }
+                }
+
+                if (gameGridRow == 0) {
+                    drawGrid();
+                    piece = null;
+                    soundPool.play(soundPieceLand, 1, 1, 0, 0, 1);
+                    endGame = true;
+                    return;
+                }
+            }
         }
 
 
+        // All pieces except the first and last.
         // Loop through the piece.
-        for (int pieceRow = 0; pieceRow < height; pieceRow++) {
+        for (int pieceRow = height - 1; pieceRow >= 0; pieceRow--) {
             for (int pieceCol = 0; pieceCol < width; pieceCol++) {
                 if (block[pieceRow][pieceCol] == 1 && gameGrid[row + pieceRow][column + pieceCol] > 0) {
+
                     // The piece will collide.  Register the piece on the grid.
                     registerOnGrid();
-                    printGrid(gameGrid);
                     removeFullRows();
                     piece = null;
                     drawGrid();
@@ -219,19 +260,33 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
-
     public void drawGrid() {
         for (int gridRow = 0; gridRow <= GRID_HEIGHT; gridRow++) {
             for (int gridCol = 0; gridCol <= GRID_WIDTH; gridCol++) {
+
+                // If block is occupied, set appropriate color to the block.
                 if (gameGrid[gridRow][gridCol] > 0) {
                     int resID = getResources().getIdentifier("block" + gridRow + "_" + gridCol, "id", getPackageName());
                     ImageView image = (ImageView) findViewById(resID);
                     image.setBackgroundColor(Piece.colors[gameGrid[gridRow][gridCol]]);
+
+                    // Add a border.
+                    ViewGroup.MarginLayoutParams marginParams = new ViewGroup.MarginLayoutParams(image.getLayoutParams());
+                    marginParams.setMargins(5,5,5,5);
+                    GridLayout.LayoutParams layoutParams = new GridLayout.LayoutParams(marginParams);
+                    image.setLayoutParams(layoutParams);
+
+                // If block is empty, set it to transparent.
                 } else {
                     int resID = getResources().getIdentifier("block" + gridRow + "_" + gridCol, "id", getPackageName());
                     ImageView image = (ImageView) findViewById(resID);
                     image.setBackgroundColor(Color.TRANSPARENT);
+
+                    // Add a border.
+                    ViewGroup.MarginLayoutParams marginParams = new ViewGroup.MarginLayoutParams(image.getLayoutParams());
+                    marginParams.setMargins(5,5,5,5);
+                    GridLayout.LayoutParams layoutParams = new GridLayout.LayoutParams(marginParams);
+                    image.setLayoutParams(layoutParams);
                 }
             }
         }
@@ -253,8 +308,6 @@ public class MainActivity extends AppCompatActivity {
         // Refresh the grid to erase any bits that get left behind when rotating pieces.
         drawGrid();
 
-
-
         // Get piece data.
         int height = piece.getBlock().length;
         int width = piece.getBlock()[0].length;
@@ -265,19 +318,21 @@ public class MainActivity extends AppCompatActivity {
         for (int i = row; i < height + row; i++) { // row
             for (int j = column; j <= width + column - 1 ; j++) { // column
 
-
                 int resID;
                 ImageView image;
 
 
                 // Erase previous row.
                 if (row > 0) {
-
-
-
                     resID = getResources().getIdentifier("block" + (row - 1) + "_" + (column), "id", getPackageName());
                     image = (ImageView) findViewById(resID);
                     image.setBackgroundColor(Color.TRANSPARENT);
+
+                    // Add a border.
+                    ViewGroup.MarginLayoutParams marginParams = new ViewGroup.MarginLayoutParams(image.getLayoutParams());
+                    marginParams.setMargins(5,5,5,5);
+                    GridLayout.LayoutParams layoutParams = new GridLayout.LayoutParams(marginParams);
+                    image.setLayoutParams(layoutParams);
                 }
 
                 if (block[(i-row)][j-column] == 1) {
@@ -287,7 +342,7 @@ public class MainActivity extends AppCompatActivity {
 
                     // Add a border.
                     ViewGroup.MarginLayoutParams marginParams = new ViewGroup.MarginLayoutParams(image.getLayoutParams());
-                    marginParams.setMargins(2,2,2,2);
+                    marginParams.setMargins(5,5,5,5);
                     GridLayout.LayoutParams layoutParams = new GridLayout.LayoutParams(marginParams);
                     image.setLayoutParams(layoutParams);
 
@@ -296,46 +351,44 @@ public class MainActivity extends AppCompatActivity {
                         resID = getResources().getIdentifier("block" + i + "_" + (j), "id", getPackageName());
                         image = (ImageView) findViewById(resID);
                         image.setBackgroundColor(Color.TRANSPARENT);
+
+                        // Add a border.
+                        ViewGroup.MarginLayoutParams marginParams = new ViewGroup.MarginLayoutParams(image.getLayoutParams());
+                        marginParams.setMargins(5,5,5,5);
+                        GridLayout.LayoutParams layoutParams = new GridLayout.LayoutParams(marginParams);
+                        image.setLayoutParams(layoutParams);
                     }
                 }
             }
         }
-
-        // Check for potential collision on next move.
-
-
     }
 
-    private void endGame() {
-        endGame = true;
-        DialogFragment newFragment = new EndGameDialog();
-        newFragment.show(getSupportFragmentManager(), "End Game");
-    }
 
     private void registerOnGrid() {
         int height = piece.getBlock().length;
         int width = piece.getBlock()[0].length;
         int[][] block = piece.getBlock();
 
-
-        for (int h = 0; h < height; h++) {
+        for (int h = height - 1; h >= 0; h--) {
             for (int w = 0; w < width; w++) {
+
                 if (block[h][w] == 1) {
 
+                    // There's enough room.  Log it.
+                    if (row > 1) {
                         gameGrid[row + h - 1][column + w] = piece.colorIndex;
-
+                    }
 
                 }
-
             }
         }
 
+        // Update the score.
         score = (TextView) findViewById(R.id.score);
         score.setText(String.valueOf(pieceCount));
 
     }
 
-    // Brute force, baby.  Brute force.
     private void removeFullRows() {
         ArrayList<Integer> fullRows = new ArrayList<>();
         for (int r = 0; r < gameGrid.length; r++) {
@@ -351,16 +404,8 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        for (int i = 0; i < fullRows.size(); i++) {
-            System.out.println(fullRows.get(i));
-        }
         // Adding new rows at beginning to make up for rows that will be removed.
         int[][] tempArray = new int[16][10];
-        System.out.println("fullRows size = " + fullRows.size());
-
-
-        Log.d("TEST", "TEMP ARRAY PRINTING");
-        printGrid(tempArray);
 
         int counter = 0;
         for (int r = 15; r >= 0; r--) {
@@ -373,11 +418,9 @@ public class MainActivity extends AppCompatActivity {
                 if (!fullRows.contains(r)) {
                     tempArray[r+counter][c] = gameGrid[r][c];
                 }
-
             }
-            System.out.println(counter);
-
         }
+
         gameGrid = tempArray;
         drawGrid();
     }
@@ -386,7 +429,6 @@ public class MainActivity extends AppCompatActivity {
         row = 0;
         column = 4;
         pieceCount++;
-        //return new T();
 
         Random rand = new Random();
         int randomNum = rand.nextInt(7);
@@ -410,7 +452,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
     private void printGrid(int[][] gameGrid) {
         String arrayString = "";
         for (int i = 0; i <= GRID_HEIGHT; i++) {
@@ -419,12 +460,6 @@ public class MainActivity extends AppCompatActivity {
             }
             arrayString += "\n";
         }
-        Log.d("TEST", arrayString);
-
-
+        Log.d("GRID ARRAY", arrayString);
     }
-
-
-
 }
-
