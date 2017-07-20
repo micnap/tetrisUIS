@@ -27,13 +27,13 @@ public abstract class Piece {
     };
 
     int[][] block;
-    int rotation = 0;
+    private int rotation = 0;
     int color;
     Point coords = new Point(4,0);
     String fileName;
 
     public void rotate(String direction) {
-        if (direction == "left") {
+        if (direction.equals("left")) {
             rotation = (rotation == 0) ? 3 : --rotation;
         } else {
             rotation = (rotation == 3) ? 0 : ++rotation;

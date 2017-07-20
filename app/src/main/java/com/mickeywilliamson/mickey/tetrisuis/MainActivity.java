@@ -1,14 +1,12 @@
 package com.mickeywilliamson.mickey.tetrisuis;
 
 
-import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Color;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Handler;
-import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -24,21 +22,23 @@ import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
 
-    final static int GRID_HEIGHT = 15;
-    final static int GRID_WIDTH = 9;
+    private final static int GRID_HEIGHT = 15;
+    private final static int GRID_WIDTH = 9;
 
-    Handler handler;
-    Piece piece;
-    Piece nextPiece;
-    int pieceCount = -1;
-    int row = 0;
-    int column = 4;
-    boolean endGame = false;
-    TextView score;
-    SoundPool soundPool;
-    int soundGameOver = -1, soundPieceMove = -1, soundPieceRotate = -1, soundPieceLand = -1;
+    private Handler handler;
+    private Piece piece;
+    private Piece nextPiece;
+    private int pieceCount = -1;
+    private int row = 0;
+    private int column = 4;
+    private boolean endGame = false;
+    private TextView score;
+    private SoundPool soundPool;
+    private int soundPieceMove = -1;
+    private int soundPieceRotate = -1;
+    private int soundPieceLand = -1;
 
-    int[][] gameGrid = new int[][]{
+    private int[][] gameGrid = new int[][]{
             {0,0,0,0,0,0,0,0,0,0},
             {0,0,0,0,0,0,0,0,0,0},
             {0,0,0,0,0,0,0,0,0,0},
@@ -71,8 +71,6 @@ public class MainActivity extends AppCompatActivity {
         AssetManager assetManager = getAssets();
 
         try {
-            AssetFileDescriptor soundGameOverFD = assetManager.openFd("gameover.ogg");
-            soundGameOver = soundPool.load(soundGameOverFD, 1);
             AssetFileDescriptor soundPieceMoveFD = assetManager.openFd("piecemove.ogg");
             soundPieceMove = soundPool.load(soundPieceMoveFD, 1);
             AssetFileDescriptor soundPieceRotateFD = assetManager.openFd("piecerotate.ogg");
@@ -91,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
             handler.postDelayed(this, getSpeed());
 
             //if (!endGame) {
-            if (endGame == false) {
+            if (!endGame) {
                 placePiece();
                 row++;
                 checkForCollision();
@@ -101,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
                 piece = null;
                 nextPiece = null;
                 pieceCount = -1;
+                updateScore(0);
                 row = 0;
                 column = 4;
                 endGame = false;
@@ -164,6 +163,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private int getSpeed() {
+
         if (pieceCount < 2) {
             return 1000;
         } else if (pieceCount < 3) {
@@ -260,7 +260,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void drawGrid() {
+    private void drawGrid() {
         for (int gridRow = 0; gridRow <= GRID_HEIGHT; gridRow++) {
             for (int gridCol = 0; gridCol <= GRID_WIDTH; gridCol++) {
 
@@ -384,9 +384,18 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // Update the score.
+        updateScore();
+
+    }
+
+    private void updateScore() {
         score = (TextView) findViewById(R.id.score);
         score.setText(String.valueOf(pieceCount));
+    }
 
+    private void updateScore(int pieceCount) {
+        score = (TextView) findViewById(R.id.score);
+        score.setText(String.valueOf(pieceCount));
     }
 
     private void removeFullRows() {

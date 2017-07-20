@@ -1,7 +1,5 @@
 package com.mickeywilliamson.mickey.tetrisuis;
 
-import android.graphics.Color;
-
 /**
  * Created by mickey on 7/12/17.
  */
